@@ -1,70 +1,449 @@
-# Getting Started with Create React App
+# 1. Replace Redux with Context API (not great for high frequency updates)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# ContextAPI refresher
 
-## Available Scripts
+## Get state 
 
-In the project directory, you can run:
+```javascript
+import React, {useState} from 'react';
+ 
+export const ProductsContext = React.createContext({products: []})
+ 
+export default props => {
+    const [productsList, setProductsList] = useState([
+        {
+            id: 'p1',
+            title: 'Red Scarf',
+            description: 'A pretty red scarf.',
+            isFavorite: false
+          },
+          {
+            id: 'p2',
+            title: 'Blue T-Shirt',
+            description: 'A pretty blue t-shirt.',
+            isFavorite: false
+          },
+          {
+            id: 'p3',
+            title: 'Green Trousers',
+            description: 'A pair of lightly green trousers.',
+            isFavorite: false
+          },
+          {
+            id: 'p4',
+            title: 'Orange Hat',
+            description: 'Street style! An orange hat.',
+            isFavorite: false
+          }
+    ])
+    return (
+        <ProductsContext.Provider value={
+            {products: productsList}
+        }>
+            {props.children}
+        </ProductsContext.Provider>
+    )
+}
 
-### `npm start`
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```javascript
+import React from 'react';
+import ReactDOM from 'react-dom';
+import { BrowserRouter } from 'react-router-dom';
+ 
+import './index.css';
+import App from './App';
+import ProductsProvider from './context/products-context';
+ 
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<ProductsProvider>
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
+</ProductsProvider>);
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```
 
-### `npm test`
+```javascript
+import React, {useContext} from 'react';
+ 
+import ProductItem from '../components/Products/ProductItem';
+import {ProductsContext} from '../context/products-context'
+import './Products.css';
+ 
+const Products = props => {
+  const productList = useContext(ProductsContext).products;
+  return (
+    <ul className="products-list">
+      {productList.map(prod => (
+        <ProductItem
+          key={prod.id}
+          id={prod.id}
+          title={prod.title}
+          description={prod.description}
+          isFav={prod.isFavorite}
+        />
+      ))}
+    </ul>
+  );
+};
+ 
+export default Products;
+ 
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```
 
-### `npm run build`
+## Update State
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```javascript
+import React, {useState} from 'react';
+ 
+export const ProductsContext = React.createContext({
+    products: [],
+toggleFav: (id) =>{}
+})
+ 
+export default props => {
+    const [productsList, setProductsList] = useState([
+        {
+            id: 'p1',
+            title: 'Red Scarf',
+            description: 'A pretty red scarf.',
+            isFavorite: false
+          },
+          {
+            id: 'p2',
+            title: 'Blue T-Shirt',
+            description: 'A pretty blue t-shirt.',
+            isFavorite: false
+          },
+          {
+            id: 'p3',
+            title: 'Green Trousers',
+            description: 'A pair of lightly green trousers.',
+            isFavorite: false
+          },
+          {
+            id: 'p4',
+            title: 'Orange Hat',
+            description: 'Street style! An orange hat.',
+            isFavorite: false
+          }
+    ]);
+ 
+    const toggleFavorite = productId => {
+        setProductsList(currentProdList =>{
+            const prodIndex = currentProdList.findIndex(
+                p => p.id === productId
+              );
+              const newFavStatus = !currentProdList[prodIndex].isFavorite;
+              const updatedProducts = [...currentProdList];
+              updatedProducts[prodIndex] = {
+                ...currentProdList[prodIndex],
+                isFavorite: newFavStatus
+              };
+            return updatedProducts;
+        })
+    }
+ 
+    return (
+        <ProductsContext.Provider value={
+            {products: productsList, toggleFav: toggleFavorite}
+        }>
+            {props.children}
+        </ProductsContext.Provider>
+    )
+}
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```javascript
+import React, {useContext} from 'react';
+ 
+import Card from '../UI/Card';
+import './ProductItem.css';
+import { ProductsContext } from '../../context/products-context';
+ 
+const ProductItem = props => {
+ 
+  const toggleFav = useContext(ProductsContext).toggleFav;
+ 
+  const toggleFavHandler = () => {
+    toggleFav(props.id)
+  };
+ 
+  return (
+    <Card style={{ marginBottom: '1rem' }}>
+      <div className="product-item">
+        <h2 className={props.isFav ? 'is-fav' : ''}>{props.title}</h2>
+        <p>{props.description}</p>
+        <button
+          className={!props.isFav ? 'button-outline' : ''}
+          onClick={toggleFavHandler}
+        >
+          {props.isFav ? 'Un-Favorite' : 'Favorite'}
+        </button>
+      </div>
+    </Card>
+  );
+};
+ 
+export default ProductItem;
+ 
 
-### `npm run eject`
+```
+## Get state
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```javascript
+import React, {useContext} from 'react';
+ 
+import FavoriteItem from '../components/Favorites/FavoriteItem';
+import { ProductsContext } from '../context/products-context';
+import './Products.css';
+ 
+const Favorites = props => {
+  const favoriteProducts = useContext(ProductsContext).products.filter(p=>p.isFavorite);
+  let content = <p className="placeholder">Got no favorites yet!</p>;
+  if (favoriteProducts.length > 0) {
+    content = (
+      <ul className="products-list">
+        {favoriteProducts.map(prod => (
+          <FavoriteItem
+            key={prod.id}
+            id={prod.id}
+            title={prod.title}
+            description={prod.description}
+          />
+        ))}
+      </ul>
+    );
+  }
+  return content;
+};
+ 
+export default Favorites;
+ 
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+# 2. Replace Redux with custom hooks (readme to be review, incomplete)
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## set the store and custom hook
 
-## Learn More
+```javascript
+import {useState, useEffect} from 'react';
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+let globalState = {};
+let listeners = [];
+let actions = {};
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+export const useStore = (shouldListen = true) => {
+    const setState = useState(globalState)[1];
 
-### Code Splitting
+    const dispatch = (actionIdentifier,payload) => {
+        const newState = actions[actionIdentifier](globalState, payload)
+        globalState = {...globalState, ...newState}
+        for (const listener of listeners) {
+            listener(globalState);
+        }
+    }
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+    useEffect(()=>{
+        if (shouldListen) {
+            listeners.push(setState);
+        }
 
-### Analyzing the Bundle Size
+        return ()=> {
+            if (shouldListen) {
+                listeners = listeners.filter(li => li!== setState)
+            }
+        }
+    }, [setState, shouldListen]);
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
 
-### Making a Progressive Web App
+    return [globalState,dispatch];
+}
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
 
-### Advanced Configuration
+export const initStore = (userActions, initialState) => {
+    if (initialState) {
+        globalState = {...globalState, ...initialState}
+    }
+    actions = {...actions, ...userActions}
+}
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+```javascript
+import {initStore} from './store'
 
-### Deployment
+const configureStore = () => {
+    const actions = {
+        TOGGLE_FAV: (curState, productId) => {
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+            const prodIndex = curState.products.findIndex(
+                p => p.id === productId
+              );
+              const newFavStatus = !curState.products[prodIndex].isFavorite;
+              const updatedProducts = [...curState.products];
+              updatedProducts[prodIndex] = {
+                ...curState.products[prodIndex],
+                isFavorite: newFavStatus
+              };
 
-### `npm run build` fails to minify
+            return { products:updatedProducts}  
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+        }
+    }
+    initStore(actions, {products: [ 
+        {
+        id: 'p1',
+        title: 'Red Scarf',
+        description: 'A pretty red scarf.',
+        isFavorite: false
+      },
+      {
+        id: 'p2',
+        title: 'Blue T-Shirt',
+        description: 'A pretty blue t-shirt.',
+        isFavorite: false
+      },
+      {
+        id: 'p3',
+        title: 'Green Trousers',
+        description: 'A pair of lightly green trousers.',
+        isFavorite: false
+      },
+      {
+        id: 'p4',
+        title: 'Orange Hat',
+        description: 'Street style! An orange hat.',
+        isFavorite: false
+      }
+    ]
+})
+}
+
+export default configureStore;
+```
+
+## provide 
+
+
+```javascript
+import React from 'react';
+import ReactDOM from 'react-dom';
+import { BrowserRouter } from 'react-router-dom';
+
+import './index.css';
+import App from './App';
+import configureProductsStore from './hooks-store/products-store';
+
+configureProductsStore();
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
+);
+```
+
+## use
+
+```javascript
+import React from 'react';
+import { useStore } from '../../hooks-store/store';
+import Card from '../UI/Card';
+import './ProductItem.css';
+
+const ProductItem = React.memo(props => {
+  console.log('rendering')
+  const dispatch = useStore(false)[1]
+
+  const toggleFavHandler = () => {
+    // toggleFav(props.id)
+    dispatch('TOGGLE_FAV', props.id)
+  };
+
+  return (
+    <Card style={{ marginBottom: '1rem' }}>
+      <div className="product-item">
+        <h2 className={props.isFav ? 'is-fav' : ''}>{props.title}</h2>
+        <p>{props.description}</p>
+        <button
+          className={!props.isFav ? 'button-outline' : ''}
+          onClick={toggleFavHandler}
+        >
+          {props.isFav ? 'Un-Favorite' : 'Favorite'}
+        </button>
+      </div>
+    </Card>
+  );
+});
+
+export default ProductItem;
+
+```
+
+```javascript
+import React, {useContext} from 'react';
+
+import FavoriteItem from '../components/Favorites/FavoriteItem';
+import { useStore } from '../hooks-store/store';
+import './Products.css';
+
+const Favorites = props => {
+  const state = useStore()[0];
+  const favoriteProducts = state.products.filter(p => p.isFavorite)
+  let content = <p className="placeholder">Got no favorites yet!</p>;
+  if (favoriteProducts.length > 0) {
+    content = (
+      <ul className="products-list">
+        {favoriteProducts.map(prod => (
+          <FavoriteItem
+            key={prod.id}
+            id={prod.id}
+            title={prod.title}
+            description={prod.description}
+          />
+        ))}
+      </ul>
+    );
+  }
+  return content;
+};
+
+export default Favorites;
+
+```
+
+
+```javascript
+import React, {useContext} from 'react';
+
+import ProductItem from '../components/Products/ProductItem';
+import { useStore } from '../hooks-store/store'
+import './Products.css';
+
+const Products = props => {
+  const state = useStore()[0];
+  return (
+    <ul className="products-list">
+      {state.products.map(prod => (
+        <ProductItem
+          key={prod.id}
+          id={prod.id}
+          title={prod.title}
+          description={prod.description}
+          isFav={prod.isFavorite}
+        />
+      ))}
+    </ul>
+  );
+};
+
+export default Products;
+
+```
+
